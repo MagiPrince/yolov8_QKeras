@@ -38,9 +38,9 @@ class C2f(tf.keras.layers.Layer):
         super(C2f, self).__init__()
 
         self.c = int(c_out * e)
-        self.conv1 = Conv(c_out=c_out)
-        self.conv2 = Conv(c_out=c_out)
-        self.bottlenecks = [Bottleneck(c_out=self.c, shortcut=shortcut, groups=groups, e=1) for _ in range(n)]
+        self.conv1 = Conv(c_out=c_out, padding="valid")
+        self.conv2 = Conv(c_out=c_out, padding="valid")
+        self.bottlenecks = [Bottleneck(c_out=self.c, shortcut=shortcut, groups=groups, e=1) for _ in range(int(n))]
 
     def call(self, inputs):
         x = self.conv1(inputs)
@@ -49,7 +49,7 @@ class C2f(tf.keras.layers.Layer):
         return self.conv2(Concatenate(axis=-1)(y))
 
 
-class SPPF():
+class SPPF(tf.keras.layers.Layer):
     def __init__(self, c_in, c_out, kernel_size=5):
         super(SPPF, self).__init__()
 
@@ -67,15 +67,22 @@ class SPPF():
         return self.conv2(concat)
     
 
-class Detect():
-    def __init__(self, c_out, nc=1):
+class Detect(tf.keras.layers.Layer):
+    def __init__(self, c_in, nc=1):
         super(Detect, self).__init__()
 
         self.nc = nc  # number of classes
         self.reg_max = 16  # DFL channels (ch[0] // 16 to scale 4/8/12/16/20 for n/s/m/l/x)
 
-        self.conv1 = Conv(c_out=c_out, kernel_size=3, stride=1)
-        self.conv2 = Conv(c_out=c_out, kernel_size=3, stride=1)
+        self.conv1_Bbox = Conv(c_out=c_in, kernel_size=3, stride=1)
+        self.conv2_Bbox = Conv(c_out=c_in, kernel_size=3, stride=1)
+        self.conv2D_Bbox = Conv2D(filters=4*self.reg_max, kernel_size=1, strides=1, padding="valid", use_bias=False)
+
+        self.conv1_Cls = Conv(c_out=c_in, kernel_size=3, stride=1)
+        self.conv2_Cls = Conv(c_out=c_in, kernel_size=3, stride=1)
+        self.conv2D_Cls = Conv2D(filters=self.nc, kernel_size=1, strides=1, padding="valid", use_bias=False)
 
     def call(self, inputs):
-        return None
+        x_Bbox = self.conv2D_Bbox(self.conv2_Bbox(self.conv1_Bbox(inputs)))
+        x_Cls = self.conv2D_Cls(self.conv2_Cls(self.conv1_Cls(inputs)))
+        return x_Bbox, x_Cls
