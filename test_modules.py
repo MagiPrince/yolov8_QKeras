@@ -20,3 +20,4 @@ from model import YoloV8
 
 t = tf.ones([1, 64, 64, 3])
 print(YoloV8()(t))
+
